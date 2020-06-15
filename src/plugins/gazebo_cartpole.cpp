@@ -65,7 +65,7 @@ void GazeboCartpole::Configure(const ignition::gazebo::Entity &_entity,
     std::uniform_real_distribution<double> u(-0.75, 0.75);
     auto init_angle = u(e);
     auto init_angular_vel = u(e);
-    std::cout<<"Init angle: "<<init_angle<<"Init angular vel: "<<init_angular_vel<<std::endl;
+    std::cout<<"Init angle: "<<init_angle<<" Init angular vel: "<<init_angular_vel<<std::endl;
     _ecm.CreateComponent(pole_joint_entity_, ignition::gazebo::components::JointPositionReset({init_angle}) );
     _ecm.CreateComponent(pole_joint_entity_, ignition::gazebo::components::JointVelocityReset({init_angular_vel}) );
     
