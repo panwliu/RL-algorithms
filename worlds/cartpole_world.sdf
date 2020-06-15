@@ -144,7 +144,7 @@
     </model>
 
     <include>
-      <pose frame=''>0 0 1.5 0 0 0</pose>
+      <pose frame=''>0 0 1.0 0 0 0</pose>
       <name>cartpole</name>
       <uri>model://cartpole</uri>
 
