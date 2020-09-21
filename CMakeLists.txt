@@ -28,6 +28,8 @@ ELSEIF (APPLE)
 
 ENDIF()
 
+add_subdirectory(extern/pybind11)
 add_subdirectory(src)
+
 
 

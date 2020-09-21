@@ -19,3 +19,5 @@ ELSEIF (APPLE)
     )
 
 ENDIF()
+
+pybind11_add_module(example test.cpp)
