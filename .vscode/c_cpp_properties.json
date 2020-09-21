@@ -4,7 +4,8 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "~/.mujoco/mujoco200_linux/include"
+                "~/.mujoco/mujoco200_linux/include",
+                "~/.mujoco/mujoco200_macos/include"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",
