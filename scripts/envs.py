@@ -1,30 +1,50 @@
 import numpy as np
 import mujocosim
+import os, pathlib
+
+def env_by_name(env_name):
+    file_path = pathlib.Path( os.path.realpath(__file__) )
+    models_path = file_path.parent.parent.__str__() + '/models/'
+
+    if env_name == 'CartPole-v0':
+        model_file = 'cartpole.xml'
+        env = CartpoleEnv(model_path = models_path + model_file)
+    elif env_name == 'CartPole-v1':     # continuous
+        model_file = 'cartpole.xml'
+        env = CartpoleEnv(model_path = models_path + model_file, discrete=False)
+    else:
+        print("Can't find env " + env_name)
+    
+    return env
+
 
 class CartpoleEnv:
-    def __init__(self, model_path="../models/cartpole.xml"):
+    def __init__(self, model_path="../models/cartpole.xml", discrete=True):
         self.sim = mujocosim.MujocoSim(model_path)
-        self.viewer = mujocosim.MujocoVis(self.sim)
+        self.discrete = discrete
 
     def step(self, action):
-        if action == 0:
-            action = -1.0
-        elif action == 1:
-            action = 1.0
+        if self.discrete:
+            if action == 0:
+                action = -1.0
+            elif action == 1:
+                action = 1.0
+            else:
+                print("Unknown action!")
         else:
-            print("Unknown action!")
+            action = np.clip(action, -1.0, 1.0)
 
         state = self.sim.step(action)
 
-        x, theta, x_dot, theta_dot = state
-        r1 = (0.7 - np.abs(x))/0.7 - 0.5
-        r2 = (0.7 - np.abs(theta))/0.7 - 0.5
-        reward = r1 + r2
-        # reward  = 1
+        # x, theta, x_dot, theta_dot = state
+        # r1 = (0.7 - np.abs(x))/0.7 - 0.5
+        # r2 = (0.7 - np.abs(theta))/0.7 - 0.5
+        # reward = r1 + r2
+        reward  = 1
 
-        if np.abs(state[0])>0.7 or np.abs(state[1])>0.7 or self.viewer.window_should_close():
+        if np.abs(state[0])>0.7 or np.abs(state[1])>0.7:
             done = True
-            reward = -10
+            # reward = -10
         else:
             done = False
 
@@ -39,46 +59,15 @@ class CartpoleEnv:
         return state
 
     def render(self):
+        if not hasattr(self, "viewer"):
+            self.viewer = mujocosim.MujocoVis(self.sim)
         self.viewer.render()
         
-class CartpoleEnv_continuous:
-    def __init__(self, model_path="../models/cartpole.xml"):
-        self.sim = mujocosim.MujocoSim(model_path)
-        self.viewer = mujocosim.MujocoVis(self.sim)
-
-    def step(self, action):
-        action = np.clip(action, -2.0, 2.0)
-
-        state = self.sim.step(action)
-
-        x, theta, x_dot, theta_dot = state
-        r1 = (0.7 - np.abs(x))/0.7 - 0.5
-        r2 = (0.7 - np.abs(theta))/0.7 - 0.5
-        reward = r1 + r2
-        # reward  = 1
-
-        if np.abs(state[0])>0.7 or np.abs(state[1])>0.7 or self.viewer.window_should_close():
-            done = True
-            reward = -10
-        else:
-            done = False
-
-        return state, reward, done
-
-    def reset(self):
-        pose = np.random.randn(2)*0.1
-        pose = np.clip(pose, -0.2, 0.2)
-        pose[0]=0
-
-        state = self.sim.reset(pose)        # state = sim.reset([])
-        return state
-
-    def render(self):
-        self.viewer.render()
         
 
 if __name__=="__main__":
-    env = CartpoleEnv()
+    # env = env_by_name(env_name="CartPole")
+    env = env_by_name(env_name="CartPole-continuous")
 
     for _ in range(10):
         done = False
@@ -93,19 +82,3 @@ if __name__=="__main__":
 
             s = s_
 
-
-if __name__=="__main__":
-    env = CartpoleEnv()
-
-    for _ in range(10):
-        done = False
-
-        s = env.reset()
-        while not done:
-            env.render()
-
-            a = np.random.choice(2,1)
-
-            s_, r, done = env.step(a)
-
-            s = s_
