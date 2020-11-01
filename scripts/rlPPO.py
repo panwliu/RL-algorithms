@@ -6,6 +6,7 @@ import nns
 import time
 import envs
 import argparse, sys
+import mpi_tools
 
 
 class PPOBuffer:
@@ -52,8 +53,10 @@ class rlPPO:
         self.optimizer_c = torch.optim.Adam(self.critic.parameters(), lr=lr_c)
         self.train_a_itrs, self.train_c_itrs = train_a_itrs, train_c_itrs
 
+        self.proc_id = mpi_tools.proc_id()
         self.log_dir = './log/PPO/' + time.strftime( '%Y-%m-%d_%H-%M-%S', time.localtime(time.time()) )
-        self.writer = SummaryWriter(log_dir = self.log_dir)
+        if self.proc_id == 0:
+            self.writer = SummaryWriter(log_dir = self.log_dir)
 
     def action(self, x):
         return self.actor.action(x)
@@ -78,17 +81,20 @@ class rlPPO:
 
             self.optimizer_a.zero_grad()
             loss_a.backward()
+            mpi_tools.mpi_avg_grads(self.actor)
             self.optimizer_a.step()
         
         for _ in range(self.train_c_itrs):
             self.optimizer_c.zero_grad()
             loss_c = F.mse_loss(self.critic(obs), r2g.view(-1,1))
             loss_c.backward()
+            mpi_tools.mpi_avg_grads(self.critic)
             self.optimizer_c.step()
     
     def write_reward(self, k_epoch, reward, ep_len):
-        self.writer.add_scalar("Reward", reward, k_epoch)
-        self.writer.add_scalar("Ep_len", ep_len, k_epoch)
+        if self.proc_id == 0:
+            self.writer.add_scalar("Reward", reward, k_epoch)
+            self.writer.add_scalar("Ep_len", ep_len, k_epoch)
 
     def save_checkpoint(self, filename, args):
         path = self.log_dir + '/' + filename
@@ -125,6 +131,7 @@ if __name__ == "__main__":
     # parser.add_argument('--save_freq', type=int, default=500)
     # parser.add_argument('--eval', default=False, action='store_true')
     # parser.add_argument('--eval_path', type=str, default='')
+    # parser.add_argument('--num_procs', type=int, default=1)
     # ------------ Cassie-v0 ------------
     parser.add_argument('--env', type=str, default='Cassie-v0')
     parser.add_argument('--sample_size', type=int, default=5000)
@@ -137,6 +144,7 @@ if __name__ == "__main__":
     parser.add_argument('--save_freq', type=int, default=500)
     parser.add_argument('--eval', default=False, action='store_true')
     parser.add_argument('--eval_path', type=str, default='')
+    parser.add_argument('--num_procs', type=int, default=1)
 
     args = parser.parse_args()
 
@@ -146,13 +154,26 @@ if __name__ == "__main__":
         env.eval(path=args.eval_path)
         sys.exit()
 
+    mpi_tools.mpi_fork(args.num_procs)
+
+    mpi_tools.setup_pytorch_for_mpi()
+
+    # Random seed
+    seed = 0
+    seed += 10000 * mpi_tools.proc_id()
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    
     env = envs.env_by_name(args.env)
-    sample_size = args.sample_size
+    sample_size = int( args.sample_size / mpi_tools.num_procs() )
+    print('sample_size ', sample_size, flush=True)
 
     buffer = PPOBuffer(obs_dim=env.obs_dim, act_dim=env.act_dim, buffer_size=sample_size)
     actor_std = 0.2*np.ones(env.act_dim, dtype=np.float32)
     actor = nns.MLPGaussianActor(env.obs_dim, env.act_dim, args.hid, torch.nn.ReLU, actor_std)
     critic = nns.MLPCritic(env.obs_dim, args.hid, torch.nn.ReLU)
+    mpi_tools.sync_params(actor)
+    mpi_tools.sync_params(critic)
     agent = rlPPO(actor, critic, lr_a=args.lr_a, lr_c=args.lr_c, train_a_itrs=args.train_a_itrs, train_c_itrs=args.train_c_itrs)
 
     for k_epoch in range(args.epochs):
@@ -187,11 +208,11 @@ if __name__ == "__main__":
                 env.reset()
         
         print( 'Epoch: %3d \t return: %.3f \t ep_len: %.3f' 
-                %(k_epoch, np.mean(buffer.reward_to_go_buf), sample_size/k_ep) )
+                %(k_epoch, np.mean(buffer.reward_to_go_buf), sample_size/k_ep), flush=True )
         agent.write_reward(k_epoch, np.mean(buffer.reward_to_go_buf), sample_size/k_ep)
         if k_epoch % args.save_freq == args.save_freq-1:
-            agent.save_checkpoint(filename=args.env+'-Epoch'+str(k_epoch)+'.tar', args=args)
+            agent.save_checkpoint(filename=args.env+'-Epoch'+str(k_epoch)+'-proc' + str(mpi_tools.proc_id())+'.tar', args=args)
         sampling_time = time.time() - epoch_start_time
         agent.train(buffer)
         training_time = time.time() - epoch_start_time - sampling_time
-        print('Tsp: %.3f \t Ttr: %.3f' %(sampling_time, training_time))
+        print('Tsp: %.3f \t Ttr: %.3f' %(sampling_time, training_time), flush=True)
