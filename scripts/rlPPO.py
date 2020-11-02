@@ -119,6 +119,9 @@ if __name__ == "__main__":
     # parser.add_argument('--epochs', type=int, default=100)
     # parser.add_argument('--save_freq', type=int, default=50)
     # parser.add_argument('--eval', default=False, action='store_true')
+    # parser.add_argument('--eval_path', type=str, default='')
+    # parser.add_argument('--play_speed', type=int, default=1)
+    # parser.add_argument('--num_procs', type=int, default=1)
     # ------------ Walker2D-v0/1 ------------
     # parser.add_argument('--env', type=str, default='Walker2D-v1')
     # parser.add_argument('--sample_size', type=int, default=3000)
@@ -131,6 +134,7 @@ if __name__ == "__main__":
     # parser.add_argument('--save_freq', type=int, default=500)
     # parser.add_argument('--eval', default=False, action='store_true')
     # parser.add_argument('--eval_path', type=str, default='')
+    # parser.add_argument('--play_speed', type=int, default=1)
     # parser.add_argument('--num_procs', type=int, default=1)
     # ------------ Cassie-v0 ------------
     parser.add_argument('--env', type=str, default='Cassie-v0')
@@ -144,6 +148,7 @@ if __name__ == "__main__":
     parser.add_argument('--save_freq', type=int, default=500)
     parser.add_argument('--eval', default=False, action='store_true')
     parser.add_argument('--eval_path', type=str, default='')
+    parser.add_argument('--play_speed', type=int, default=1)
     parser.add_argument('--num_procs', type=int, default=1)
 
     args = parser.parse_args()
@@ -151,16 +156,17 @@ if __name__ == "__main__":
     if args.eval:
         env = envs.env_by_name(args.env)
         # env.eval(path='./log/PPO/2020-10-28_20-49-51/CartPole-v1-Epoch99')
-        env.eval(path=args.eval_path)
+        env.eval(path=args.eval_path, play_speed=args.play_speed)
         sys.exit()
 
     mpi_tools.mpi_fork(args.num_procs)
+    proc_id = mpi_tools.proc_id()
 
     mpi_tools.setup_pytorch_for_mpi()
 
     # Random seed
     seed = 0
-    seed += 10000 * mpi_tools.proc_id()
+    seed += 10000 * proc_id
     torch.manual_seed(seed)
     np.random.seed(seed)
     
@@ -207,12 +213,14 @@ if __name__ == "__main__":
                 buffer.finish_traj()
                 env.reset()
         
-        print( 'Epoch: %3d \t return: %.3f \t ep_len: %.3f' 
-                %(k_epoch, np.mean(buffer.reward_to_go_buf), sample_size/k_ep), flush=True )
-        agent.write_reward(k_epoch, np.mean(buffer.reward_to_go_buf), sample_size/k_ep)
-        if k_epoch % args.save_freq == args.save_freq-1:
-            agent.save_checkpoint(filename=args.env+'-Epoch'+str(k_epoch)+'-proc' + str(mpi_tools.proc_id())+'.tar', args=args)
         sampling_time = time.time() - epoch_start_time
         agent.train(buffer)
         training_time = time.time() - epoch_start_time - sampling_time
-        print('Tsp: %.3f \t Ttr: %.3f' %(sampling_time, training_time), flush=True)
+
+        if proc_id == 0:
+            print( 'Epoch: %3d \t return: %.3f \t ep_len: %.3f' %(k_epoch, np.mean(buffer.reward_to_go_buf), sample_size/k_ep), flush=True )
+            print('Tsp: %.3f \t Ttr: %.3f' %(sampling_time, training_time), flush=True)
+            agent.write_reward(k_epoch, np.mean(buffer.reward_to_go_buf), sample_size/k_ep)
+            if k_epoch % args.save_freq == args.save_freq-1:
+                agent.save_checkpoint(filename=args.env+'-Epoch'+str(k_epoch)+'-proc' + str(proc_id)+'.tar', args=args)
+        

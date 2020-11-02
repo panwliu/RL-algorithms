@@ -97,9 +97,9 @@ py::array_t<double> MujocoSim::step(py::array_t<double> action)
     for (int i=0; i<nu; i++)
         d_->ctrl[i] = action_buffer_ptr[i];
 
-    mjtNum simstart = time();
-    while( time() - simstart < 1.0/60.0 )
-        mj_step(m_, d_);
+    // mjtNum simstart = time();
+    // while( time() - simstart < 1.0/60.0 )
+    mj_step(m_, d_);
 
     return state();
 }

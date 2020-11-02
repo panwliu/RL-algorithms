@@ -1,6 +1,6 @@
 import numpy as np
 import mujocosim
-import os, pathlib
+import os, pathlib, time
 import torch, nns
 
 def env_by_name(env_name):
@@ -31,6 +31,7 @@ def env_by_name(env_name):
 class CartpoleEnv:
     def __init__(self, model_path="../models/cartpole.xml", discrete=True):
         self.sim = mujocosim.MujocoSim(model_path)
+        self.sim_timestep, self.simrate = 0.005, 4
         self.discrete = discrete
         if discrete:
             self.obs_dim, self.act_dim = 4, 2
@@ -48,7 +49,8 @@ class CartpoleEnv:
         else:
             action = np.clip(action, -1.0, 1.0)
 
-        state = self.sim.step(action)
+        for _ in range(self.simrate):
+            state = self.sim.step(action)
 
         # x, theta, x_dot, theta_dot = state
         # r1 = (0.7 - np.abs(x))/0.7 - 0.5
@@ -77,7 +79,7 @@ class CartpoleEnv:
             self.viewer = mujocosim.MujocoVis(self.sim)
         self.viewer.render()
         
-    def eval(self, path):
+    def eval(self, path, play_speed=1):
         checkpoint = torch.load(path)
         args = checkpoint['args']
         actor = nns.MLPGaussianActor(self.obs_dim, self.act_dim, args.hid, torch.nn.ReLU, 0.3)
@@ -89,11 +91,15 @@ class CartpoleEnv:
             for _ in range(1000):
                 self.render()
                 act, _ = actor.action(obs)
+                sim_starttime = time.time()
                 obs, _, _ = self.step(act)
+                while time.time() - sim_starttime < self.sim_timestep*self.simrate / play_speed:
+                    time.sleep(self.sim_timestep/play_speed)
         
 class Walker2dEnv:
     def __init__(self, model_path="../models/walker2d.xml", jumping=False):
         self.sim = mujocosim.MujocoSim(model_path)
+        self.sim_timestep, self.simrate = 0.002, 10
         self.jumping = jumping
         if jumping:
             self.obs_dim, self.act_dim = 17, 3
@@ -104,8 +110,7 @@ class Walker2dEnv:
         action = np.clip(action, -1.0, 1.0)
         if self.jumping:
             action = np.hstack((action,action))
-            state = self.sim.step(action)
-        else:
+        for _ in range(self.simrate):
             state = self.sim.step(action)
 
         height, angle, vel = state[1], state[2], state[9]
@@ -125,7 +130,7 @@ class Walker2dEnv:
             self.viewer = mujocosim.MujocoVis(self.sim)
         self.viewer.render()
 
-    def eval(self, path):
+    def eval(self, path, play_speed=1):
         checkpoint = torch.load(path)
         args = checkpoint['args']
         actor = nns.MLPGaussianActor(self.obs_dim, self.act_dim, args.hid, torch.nn.ReLU, 0.2)
@@ -137,7 +142,10 @@ class Walker2dEnv:
             for _ in range(500):
                 self.render()
                 act, _ = actor.action(obs)
+                sim_starttime = time.time()
                 obs, _, done = self.step(act)
+                while time.time() - sim_starttime < self.sim_timestep*self.simrate / play_speed:
+                    time.sleep(self.sim_timestep/play_speed)
                 if done:
                     break
 
@@ -146,6 +154,7 @@ class Walker2dEnv:
 class CassieEnv:
     def __init__(self, model_path="../models/cassie.xml", reward_type='standing'):
         self.sim = mujocosim.MujocoSim(model_path)
+        self.sim_timestep, self.simrate = 0.0005, 50
         self.obs_dim, self.act_dim = self.cassie_state_fcn(np.zeros(67)).size, 10
         self.reward_type = reward_type
 
@@ -168,7 +177,8 @@ class CassieEnv:
         action_scale = np.array( [4.5, 4.5, 12.2, 12.2, 0.9, 4.5, 4.5, 12.2, 12.2, 0.9] )
         action = action_scale * action
 
-        state = self.sim.step(action)
+        for _ in range(self.simrate):
+            state = self.sim.step(action)
         self.cassie_state = self.cassie_state_fcn(state)
 
         height, vel = state[2], state[35]
@@ -213,7 +223,7 @@ class CassieEnv:
 
         return cassie_state
     
-    def eval(self, path):
+    def eval(self, path, play_speed=1):
         checkpoint = torch.load(path)
         args = checkpoint['args']
         actor = nns.MLPGaussianActor(self.obs_dim, self.act_dim, args.hid, torch.nn.ReLU, 0.3)
@@ -225,7 +235,10 @@ class CassieEnv:
             for _ in range(500):
                 self.render()
                 act, _ = actor.action(obs)
+                sim_starttime = time.time()
                 obs, _, done = self.step(act)
+                while time.time() - sim_starttime < self.sim_timestep*self.simrate / play_speed:
+                    time.sleep(self.sim_timestep/play_speed)
                 if done:
                     break
 
