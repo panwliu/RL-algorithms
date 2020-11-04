@@ -229,7 +229,7 @@ class CassieEnv:
         actor = nns.MLPGaussianActor(self.obs_dim, self.act_dim, args.hid, torch.nn.ReLU, 0.3)
         actor.load_state_dict(checkpoint['actor_state_dict'])
         actor.eval()
-        
+
         for _ in range(10):
             obs = self.reset()
             for _ in range(500):
@@ -237,7 +237,7 @@ class CassieEnv:
                 act, _ = actor.action(obs)
                 sim_starttime = time.time()
                 obs, _, done = self.step(act)
-                while time.time() - sim_starttime < self.sim_timestep*self.simrate / play_speed:
+                while (time.time() - sim_starttime) < (self.sim_timestep*self.simrate / play_speed):
                     time.sleep(self.sim_timestep/play_speed)
                 if done:
                     break
