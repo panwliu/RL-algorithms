@@ -7,6 +7,7 @@ import time
 import envs
 import argparse, sys
 import itertools, copy
+import mpi_tools
 
 class ReplayBuffer:
     def __init__(self, obs_dim, act_dim, buffer_size):
@@ -81,6 +82,8 @@ class rlSAC:
         loss_q2 = ((q2 - backup)**2).mean()
         loss_q = loss_q1 + loss_q2
         loss_q.backward()
+        mpi_tools.mpi_avg_grads(self.ac.q1)
+        mpi_tools.mpi_avg_grads(self.ac.q2)
         self.optim_q.step()
 
         for p in self.q_params:
@@ -94,6 +97,7 @@ class rlSAC:
         self.optim_pi.zero_grad()
         loss_pi = (self.alpha * logp_pi - q_pi).mean()
         loss_pi.backward()
+        mpi_tools.mpi_avg_grads(self.ac.pi)
         self.optim_pi.step()
 
         for p in self.q_params:
@@ -125,39 +129,47 @@ if __name__ == '__main__':
     # parser.add_argument('--num_procs', type=int, default=1)
     # ------------ Walker2D-v0/1 ------------
     parser.add_argument('--env', type=str, default='Walker2D-v1')
-    parser.add_argument('--memory_size', type=int, default=10000)
+    parser.add_argument('--memory_size', type=int, default=5000)
     parser.add_argument('--hid', type=list, default=[128,64])
     parser.add_argument('--lr_a', type=float, default=1e-3)
-    parser.add_argument('--lr_c', type=float, default=1e-2)
-    parser.add_argument('--train_a_itrs', type=int, default=30)
-    parser.add_argument('--train_c_itrs', type=int, default=5)
-    parser.add_argument('--epochs', type=int, default=5000)
+    parser.add_argument('--lr_c', type=float, default=1e-3)
+    parser.add_argument('--total_steps', type=int, default=25000)
     parser.add_argument('--save_freq', type=int, default=500)
     parser.add_argument('--eval', default=False, action='store_true')
     parser.add_argument('--eval_path', type=str, default='')
     parser.add_argument('--play_speed', type=int, default=1)
-    parser.add_argument('--num_procs', type=int, default=1)
+    parser.add_argument('--num_procs', type=int, default=4)
     args = parser.parse_args()
 
-    torch.manual_seed(0)
-    np.random.seed(0)
+    mpi_tools.mpi_fork(args.num_procs)
+    proc_id = mpi_tools.proc_id()
+
+    mpi_tools.setup_pytorch_for_mpi()
+    
+    # Random seed
+    seed = 0
+    seed += 10000 * proc_id
+    torch.manual_seed(seed)
+    np.random.seed(seed)
 
     env = envs.env_by_name(args.env)
+    print('memory_size ', args.memory_size, flush=True)
 
+    buffer = ReplayBuffer(env.obs_dim, env.act_dim, args.memory_size)
     ac = nns.MLPActorCritic3(env.obs_dim, env.act_dim, args.hid, torch.nn.ReLU)
     # ac_targ = nns.MLPActorCritic3(env.obs_dim, env.act_dim, args.hid, torch.nn.ReLU)
+    mpi_tools.sync_params(ac)
     ac_targ = copy.deepcopy(ac)
     agent = rlSAC(ac, ac_targ)
-    buffer = ReplayBuffer(env.obs_dim, env.act_dim, args.memory_size)
-
-    total_steps = 500 * 200     # n_episodes * step_per_episodes
+    
     k_ep, k_ep_step = 0, 0
+    reward_total = 0
     obs = env.reset()
-    for t in range(total_steps):
+    for t in range(args.total_steps):
         # if k_ep > 300:
         #     env.render()
         
-        if t > 5000:
+        if t > 2000:
             act = agent.action(obs)
         else:
             act = np.random.uniform(low=-1.0, high=1.0, size=env.act_dim)
@@ -166,27 +178,38 @@ if __name__ == '__main__':
         buffer.store(obs, act, reward, obs_, done)
 
         obs = obs_
+        reward_total += reward
 
         k_ep_step += 1
         if done:
-            if k_ep % 5 == 0:
-                print(k_ep,"Episode finished after {} timesteps".format(k_ep_step))
+            if k_ep % 10 == 0 and proc_id == 0:
+                print(k_ep,"Episode finished after {} timesteps".format(k_ep_step), ", reward is {}".format(reward_total), flush=True)
             obs = env.reset()
             k_ep += 1
             k_ep_step = 0
+            reward_total = 0
 
-        if t > 3000:
+        if t > 1000:
             agent.train(buffer)
+        
+        # if t%2000==0:
+        #     mpi_tools.sync_params(ac)
+        #     mpi_tools.sync_params(ac_targ)
 
-    print('--------- test policy ---------')
-    k_ep, k_ep_step = 0, 0
-    obs = env.reset()
-    for t in range(1000):
-        act = agent.action(obs,True)
-        obs, _, done = env.step(act)
-        k_ep_step += 1
-        if done or k_ep_step==999:
-            print(k_ep,"Episode finished after {} timesteps".format(k_ep_step))
-            obs = env.reset()
-            k_ep += 1
-            k_ep_step = 0
+    if proc_id == 0:
+        print('--------- test policy ---------')
+        k_ep, k_ep_step = 0, 0
+        reward_total = 0
+        obs = env.reset()
+        for t in range(1000):
+            env.render()
+            act = agent.action(obs,True)
+            obs, reward, done = env.step(act)
+            reward_total += reward
+            k_ep_step += 1
+            if done or k_ep_step==999:
+                print(k_ep,"Episode finished after {} timesteps".format(k_ep_step), ", reward is {}".format(reward_total), flush=True)
+                obs = env.reset()
+                k_ep += 1
+                k_ep_step = 0
+                reward_total = 0
