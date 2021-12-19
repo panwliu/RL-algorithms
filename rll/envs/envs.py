@@ -1,7 +1,8 @@
 import numpy as np
 import mujocosim
 import os, pathlib, time
-import torch, nns
+import torch
+from rll.utils import nns
 
 def env_by_name(env_name):
     file_path = pathlib.Path( os.path.realpath(__file__) )

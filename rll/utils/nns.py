@@ -9,6 +9,24 @@ def mlp(sizes, activation, output_activation=torch.nn.Identity):
         layers += [torch.nn.Linear(sizes[i], sizes[i+1]), act()]
     return torch.nn.Sequential(*layers)
 
+class ActorBase(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+    
+    def forward(self, x):
+        raise NotImplementedError
+    
+    def action(self, x):
+        raise NotImplementedError
+
+class CriticBase(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+    
+    def forward(self, x):
+        raise NotImplementedError
+
+
 class MLPCategoricalActor(torch.nn.Module):
     def __init__(self, obs_dim, act_dim, hidden_sizes, activation):
         super().__init__()

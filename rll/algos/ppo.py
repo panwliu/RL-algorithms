@@ -9,42 +9,6 @@ import argparse, sys
 import mpi_tools
 
 
-class PPOBuffer:
-    def __init__(self, obs_dim, act_dim, buffer_size, gamma=0.99, lam=0.95):
-        self.obs_buf = np.zeros((buffer_size,obs_dim), dtype=np.float32)
-        self.act_buf = np.zeros((buffer_size,act_dim), dtype=np.float32)
-        self.reward_buf = np.zeros(buffer_size, dtype=np.float32)
-        self.reward_to_go_buf = np.zeros(buffer_size, dtype=np.float32)
-        self.logp_buff = np.zeros(buffer_size, dtype=np.float32)
-        
-        self.gamma = gamma
-        self.ptr, self.traj_start_idx = 0, 0
-
-    def store(self, obs, act, reward, logp):
-        self.obs_buf[self.ptr,:] = obs
-        self.act_buf[self.ptr,:] = act
-        self.reward_buf[self.ptr] = reward
-        self.logp_buff[self.ptr] = logp
-        
-        self.ptr += 1
-    
-    def finish_traj(self, last_val=0):
-        rewards = self.reward_buf[self.traj_start_idx:self.ptr]
-        r_cum = np.zeros_like(rewards)
-
-        r_cum[-1] = rewards[-1] + last_val
-        for k in reversed(range(len(rewards)-1)):
-            r_cum[k] = rewards[k] + self.gamma*r_cum[k+1]
-
-        self.reward_to_go_buf[self.traj_start_idx:self.ptr] = r_cum
-
-        self.traj_start_idx = self.ptr
-
-    def get(self):
-        self.ptr, self.traj_start_idx = 0, 0
-        return self.obs_buf, self.act_buf, self.reward_buf, self.reward_to_go_buf, self.logp_buff
-
-
 class rlPPO:
     def __init__(self, actor:nns.MLPGaussianActor, critic:nns.MLPCritic, lr_a, lr_c, train_a_itrs, train_c_itrs):
         self.actor, self.critic= actor, critic

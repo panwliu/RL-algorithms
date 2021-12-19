@@ -4,3 +4,4 @@
 .DS_Store
 # *.so
 settings.json
+temp/
