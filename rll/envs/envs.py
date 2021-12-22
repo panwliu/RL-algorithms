@@ -1,12 +1,12 @@
 import numpy as np
-import mujocosim
+from . import mujocosim
 import os, pathlib, time
 import torch
 from rll.utils import nns
 
 def env_by_name(env_name):
     file_path = pathlib.Path( os.path.realpath(__file__) )
-    models_path = file_path.parent.parent.__str__() + '/models/'
+    models_path = file_path.parent.__str__() + '/models/'
 
     if env_name == 'CartPole-v0':
         model_file = 'cartpole.xml'
@@ -24,6 +24,13 @@ def env_by_name(env_name):
         print("Can't find env " + env_name)
     
     return env
+
+class EnvBase:
+    def step(self, action:np.ndarray) -> list((np.ndarray, np.float64, bool, np.ndarray)):       # (obs_, reward, done, info)
+        raise NotImplementedError
+    
+    def reset(self) -> np.ndarray:
+        raise NotImplementedError
 
 
 class CartpoleEnv:
@@ -62,7 +69,7 @@ class CartpoleEnv:
         else:
             done = False
 
-        return state, reward, done
+        return state, reward, done, None
 
     def reset(self):
         pose = np.random.randn(2)*0.1
@@ -117,7 +124,7 @@ class Walker2dEnv:
 
         done = not (height > 0.8 and height < 2.0 and angle > -1.0 and angle < 1.0)
 
-        return state[1:], reward, done
+        return state[1:], reward, done, None
 
     def reset(self):
         state = self.sim.reset([])

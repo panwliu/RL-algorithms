@@ -1,2 +1,2 @@
 # Reninforcement-Learning-Library
-A library for deep reinforcement learning algorithms. All algorithms are tested on simulated robots using [MuJoCo](http://www.mujoco.org/).
+A light and modular library for deep reinforcement learning. All algorithms are tested on simulated robots using [MuJoCo](http://www.mujoco.org/).

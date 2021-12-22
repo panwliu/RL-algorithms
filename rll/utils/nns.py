@@ -13,7 +13,7 @@ class ActorBase(torch.nn.Module):
     def __init__(self):
         super().__init__()
     
-    def forward(self, x):
+    def forward(self, x) -> torch.distributions.Normal:
         raise NotImplementedError
     
     def action(self, x):
