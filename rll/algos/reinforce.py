@@ -26,6 +26,7 @@ class rlReinforce(rlBase):
 
             self.optim.zero_grad()
             loss.backward()
+            mpi_tools.mpi_avg_grads(self.actor)
             self.optim.step()
 
     def eval(self):
