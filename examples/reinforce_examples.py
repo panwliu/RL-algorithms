@@ -15,10 +15,10 @@ parser.add_argument('--num_procs', type=int, default=4)
 # # ------------ Walker2D ------------
 # parser.add_argument('--env', type=str, default='Walker2D-v1')
 # parser.add_argument('--hid', type=list, default=[128,128])
-# parser.add_argument('--act_std', type=float, default=1.0)
+# parser.add_argument('--act_std', type=float, default=0.6)
 # parser.add_argument('--lr', type=float, default=1e-3)
 # parser.add_argument('--epochs', type=int, default=1000)
-# parser.add_argument('--sample_size', type=int, default=8000)
+# parser.add_argument('--sample_size', type=int, default=80000)
 # parser.add_argument('--num_procs', type=int, default=8)
 
 args = parser.parse_args()
