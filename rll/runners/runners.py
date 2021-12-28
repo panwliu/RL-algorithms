@@ -15,6 +15,7 @@ def onpolicy_runner(env:rll.envs.EnvBase, agent: rll.algos.rlBase, buffer: rll.b
     epochs = param_dict['epochs']
     sample_size = param_dict['sample_size']
     num_procs = param_dict['num_procs']
+    log_dir = param_dict['log_dir']
 
     
     rll.utils.mpi_tools.mpi_fork(num_procs)
@@ -33,6 +34,8 @@ def onpolicy_runner(env:rll.envs.EnvBase, agent: rll.algos.rlBase, buffer: rll.b
         agent.critic.apply(reset_parameters)
         rll.utils.mpi_tools.sync_params(agent.critic)
     
+    logger = rll.utils.loggers.Logger(log_dir)
+
 
     for k_epoch in range(epochs):
         epoch_start_time = time.time()
@@ -66,6 +69,7 @@ def onpolicy_runner(env:rll.envs.EnvBase, agent: rll.algos.rlBase, buffer: rll.b
         if proc_id == 0:
             print( 'Epoch: %3d \t return: %.3f \t ep_len: %.3f' %(k_epoch, np.mean(buffer.reward_to_go_buf), sample_size/k_ep), flush=True )
             print('Tsp: %.3f \t Ttr: %.3f' %(sampling_time, training_time), flush=True)
+            logger.write_reward(k_epoch, np.mean(buffer.reward_buf), np.mean(buffer.reward_to_go_buf), sample_size/k_ep, sampling_time, training_time)
 
 
 
