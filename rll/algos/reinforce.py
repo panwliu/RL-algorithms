@@ -16,11 +16,12 @@ class rlReinforce(rlBase):
         return self.actor.action(x)
 
     def train(self, buffer:BufferBase):
-        obs, acts, rewards, _, r2g, _ = buffer.get()
+        data = buffer.get()
+        obs, act, r2g = data['obs'], data['act'], data['r2g']
 
         for _ in range(1):
             pi = self.actor(obs)
-            logp = pi.log_prob(acts).sum(axis=-1)
+            logp = pi.log_prob(act).sum(axis=-1)
             # loss = -(logp * r2g).mean()
             loss = -(logp * (r2g-r2g.mean())).mean()
 

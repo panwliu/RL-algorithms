@@ -51,20 +51,20 @@ def onpolicy_runner(env:rll.envs.EnvBase, agent: rll.algos.rlBase, buffer: rll.b
 
             if done:
                 k_ep += 1
-                buffer.finish_traj()
+                buffer.finish_traj(critic=agent.critic)
                 obs = env.reset()
         
         if not done:
             k_ep += 1
             last_val = agent.critic(torch.tensor(obs,dtype=torch.float32)).detach().numpy() if agent.critic else 0
-            buffer.finish_traj(last_val=last_val)
+            buffer.finish_traj(critic=agent.critic, last_val=last_val)
         
         sampling_time = time.time() - epoch_start_time
         agent.train(buffer)
         training_time = time.time() - epoch_start_time - sampling_time
 
         if proc_id == 0:
-            print( 'Epoch: %3d \t return: %.3f \t ep_len: %.3f' %(k_epoch, torch.mean(buffer.reward_to_go_buf), sample_size/k_ep), flush=True )
+            print( 'Epoch: %3d \t return: %.3f \t ep_len: %.3f' %(k_epoch, np.mean(buffer.reward_to_go_buf), sample_size/k_ep), flush=True )
             print('Tsp: %.3f \t Ttr: %.3f' %(sampling_time, training_time), flush=True)
 
 
