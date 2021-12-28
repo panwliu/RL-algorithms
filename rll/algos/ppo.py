@@ -17,14 +17,15 @@ class rlPPO(rlBase):
         return self.actor.action(x)
 
     def train(self, buffer:BufferBase):
-        obs, acts, rewards, _, r2g, logp_old = buffer.get()
+        data = buffer.get()
+        obs, act, logp_old, r2g, advantages = data['obs'], data['act'], data['logp'], data['r2g'], data['adv']
 
-        baselines = self.critic(obs).detach().view(-1)
-        advantages = r2g - baselines
+        # baselines = self.critic(obs).detach().view(-1)
+        # advantages = r2g - baselines
 
         for _ in range(self.train_a_itrs):
             pi = self.actor(obs)
-            logp = pi.log_prob(acts).sum(axis=-1)
+            logp = pi.log_prob(act).sum(axis=-1)
             ratios = (logp - logp_old).exp()
             loss_a = -torch.min( advantages*ratios, advantages*torch.clamp(ratios, 1-0.2, 1+0.2) ).mean()
 

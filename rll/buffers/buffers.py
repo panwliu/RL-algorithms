@@ -49,7 +49,7 @@ class ExpBuffer(BufferBase):
         self.reward_to_go_buf[self.traj_start_idx:self.ptr] = r_cum
 
         if critic:
-            vals = self.critic(torch.as_tensor(obs,dtype=torch.float32)).detach().numpy()
+            vals = critic(torch.as_tensor(obs,dtype=torch.float32)).detach().numpy().reshape(-1)
             vals = np.append(vals, last_val)
             deltas = rewards + self.gamma * vals[1:] - vals[:-1]
 
