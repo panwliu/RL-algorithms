@@ -11,11 +11,10 @@ def reset_parameters(m):        # default reset fcn of torch.nn.Linear  https://
         torch.nn.init.uniform_(m.bias, -bound, bound)
         
 
-def onpolicy_runner(env:rll.envs.EnvBase, agent: rll.algos.rlBase, buffer: rll.buffers.BufferBase, param_dict: dict):
-    epochs = param_dict['epochs']
-    sample_size = param_dict['sample_size']
-    num_procs = param_dict['num_procs']
-    log_dir = param_dict['log_dir']
+def onpolicy_runner(env:rll.envs.EnvBase, agent: rll.algos.rlBase, buffer: rll.buffers.BufferBase, logger: rll.utils.loggers.LoggerBase, args):
+    epochs = args.epochs
+    sample_size = args.sample_size_local
+    num_procs = args.num_procs
 
     
     rll.utils.mpi_tools.mpi_fork(num_procs)
@@ -34,8 +33,6 @@ def onpolicy_runner(env:rll.envs.EnvBase, agent: rll.algos.rlBase, buffer: rll.b
         agent.critic.apply(reset_parameters)
         rll.utils.mpi_tools.sync_params(agent.critic)
     
-    logger = rll.utils.loggers.Logger(log_dir)
-
 
     for k_epoch in range(epochs):
         epoch_start_time = time.time()
@@ -70,6 +67,8 @@ def onpolicy_runner(env:rll.envs.EnvBase, agent: rll.algos.rlBase, buffer: rll.b
             print( 'Epoch: %3d \t return: %.3f \t ep_len: %.3f' %(k_epoch, np.mean(buffer.reward_to_go_buf), sample_size/k_ep), flush=True )
             print('Tsp: %.3f \t Ttr: %.3f' %(sampling_time, training_time), flush=True)
             logger.write_reward(k_epoch, np.mean(buffer.reward_buf), np.mean(buffer.reward_to_go_buf), sample_size/k_ep, sampling_time, training_time)
+            if (k_epoch+1) % args.save_freq == 0:
+                logger.save_checkpoint(filename=args.env+'-Epoch'+str(k_epoch)+'-proc' + str(proc_id)+'.tar', agent=agent, args=args)
 
 
 

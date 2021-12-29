@@ -8,10 +8,13 @@ from rll.utils import mpi_tools
 
 
 class rlPPO(rlBase):
-    def __init__(self, actor:nns.ActorBase, critic:nns.CriticBase, optimizers, train_itrs):
+    def __init__(self, actor:nns.ActorBase, critic:nns.CriticBase, optimizers, args):
         self.actor, self.critic= actor, critic
         self.optimizer_a, self.optimizer_c = optimizers
-        self.train_a_itrs, self.train_c_itrs = train_itrs
+        self.train_a_itrs, self.train_c_itrs = args.train_a_itrs, args.train_c_itrs
+        self.target_kl = args.target_kl
+
+        self.proc_id = mpi_tools.proc_id()
 
     def action(self, x):
         return self.actor.action(x)
@@ -23,11 +26,19 @@ class rlPPO(rlBase):
         # baselines = self.critic(obs).detach().view(-1)
         # advantages = r2g - baselines
 
-        for _ in range(self.train_a_itrs):
+        for i in range(self.train_a_itrs):
             pi = self.actor(obs)
             logp = pi.log_prob(act).sum(axis=-1)
             ratios = (logp - logp_old).exp()
             loss_a = -torch.min( advantages*ratios, advantages*torch.clamp(ratios, 1-0.2, 1+0.2) ).mean()
+
+            approx_kl = (logp_old - logp).mean().item()
+            approx_kl_avg = mpi_tools.mpi_avg(approx_kl)
+            target_kl = 0.05
+            if approx_kl_avg > 1.5 * target_kl:
+                if self.proc_id == 0:
+                    print('Early stopping at step %d due to reaching max kl.'%i, flush=True)
+                break
 
             self.optimizer_a.zero_grad()
             loss_a.backward()
