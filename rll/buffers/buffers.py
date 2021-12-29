@@ -19,7 +19,7 @@ class BufferBase:
 
 # for policy gradient based algorithms, e.g. reinforce, vpg, ppo
 class ExpBuffer(BufferBase):
-    def __init__(self, obs_dim, act_dim, buffer_size, gamma=0.99, lam=0.95):
+    def __init__(self, obs_dim, act_dim, buffer_size, gamma=0.99, lam=0.98):
         self.obs_buf = np.zeros((buffer_size,obs_dim), dtype=np.float32)
         self.act_buf = np.zeros((buffer_size,act_dim), dtype=np.float32)
         self.reward_buf = np.zeros(buffer_size, dtype=np.float32)

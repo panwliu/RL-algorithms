@@ -42,6 +42,7 @@ lr_a = args.lr_a
 lr_c = args.lr_c
 args.sample_size_local = args.sample_size//args.num_procs
 
+
 ## create env, agent and buffer
 env = rll.envs.env_by_name(env_name)
 
@@ -56,6 +57,7 @@ buffer = rll.buffers.ExpBuffer(env.obs_dim, env.act_dim, args.sample_size_local)
 
 log_dir = './log/' + env_name + '-PPO'
 logger = rll.utils.loggers.Logger(log_dir)
+
 
 ## run training
 rll.runners.onpolicy_runner(env, agent, buffer, logger, args)
