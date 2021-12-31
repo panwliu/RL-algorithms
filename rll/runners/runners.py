@@ -17,7 +17,7 @@ def onpolicy_runner(env:rll.envs.EnvBase, agent: rll.algos.rlBase, buffer: rll.b
     num_procs = args.num_procs
 
     
-    rll.utils.mpi_tools.mpi_fork(num_procs)
+    rll.utils.mpi_tools.mpi_fork(num_procs, host=args.mpi_host)
     proc_id = rll.utils.mpi_tools.proc_id()
 
     rll.utils.mpi_tools.setup_pytorch_for_mpi()
