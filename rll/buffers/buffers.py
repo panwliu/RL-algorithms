@@ -20,6 +20,7 @@ class BufferBase:
 # for policy gradient based algorithms, e.g. reinforce, vpg, ppo
 class ExpBuffer(BufferBase):
     def __init__(self, obs_dim, act_dim, buffer_size, gamma=0.99, lam=0.98):
+        self.buffer_size = buffer_size
         self.obs_buf = np.zeros((buffer_size,obs_dim), dtype=np.float32)
         self.act_buf = np.zeros((buffer_size,act_dim), dtype=np.float32)
         self.reward_buf = np.zeros(buffer_size, dtype=np.float32)
@@ -58,16 +59,23 @@ class ExpBuffer(BufferBase):
 
         self.traj_start_idx = self.ptr
 
-    def get(self):
+    def get(self, batch_size):
         self.ptr, self.traj_start_idx = 0, 0
 
         adv_mean, adv_std = mpi_tools.mpi_statistics_scalar(self.advantage_buf)
         self.advantage_buf = (self.advantage_buf - adv_mean) / adv_std
 
-        data = dict(obs=self.obs_buf, act=self.act_buf, reward=self.reward_buf, obs2=self.obs_next_buf,
-                    logp=self.logp_buf, r2g=self.reward_to_go_buf, adv=self.advantage_buf)
+        indices = np.random.permutation(self.buffer_size)       # equivalent to `indices=np.arange(buffer_size)   np.random.shuffle(indices)`
+        data_list = []
+        for i in range(0, self.buffer_size, batch_size):
+            idx = indices[i : i+batch_size]
 
-        return {k: torch.as_tensor(v, dtype=torch.float32) for k,v in data.items()}
+            data = dict(obs=self.obs_buf[idx], act=self.act_buf[idx], reward=self.reward_buf[idx], obs2=self.obs_next_buf[idx],
+                        logp=self.logp_buf[idx], r2g=self.reward_to_go_buf[idx], adv=self.advantage_buf[idx])
+            
+            data_list.append( {k: torch.as_tensor(v, dtype=torch.float32) for k,v in data.items()} )
+
+        return data_list
 
 
 # for value function based RL algorithms, e.g. DQN

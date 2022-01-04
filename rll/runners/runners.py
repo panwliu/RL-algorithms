@@ -14,6 +14,8 @@ def reset_parameters(m):        # default reset fcn of torch.nn.Linear  https://
 def onpolicy_runner(env:rll.envs.EnvBase, agent: rll.algos.rlBase, buffer: rll.buffers.BufferBase, logger: rll.utils.loggers.LoggerBase, args):
     epochs = args.epochs
     sample_size = args.sample_size_local
+    max_ep_length = args.max_ep_length
+    batch_size = args.batch_size_local
     num_procs = args.num_procs
 
     
@@ -39,7 +41,10 @@ def onpolicy_runner(env:rll.envs.EnvBase, agent: rll.algos.rlBase, buffer: rll.b
         obs = env.reset()
 
         k_ep = 0
+        ep_len = 0
+        finish_traj_flag = False
         for k_sample in range(sample_size):
+            ep_len += 1
 
             act, logp = agent.action(obs)
 
@@ -49,22 +54,30 @@ def onpolicy_runner(env:rll.envs.EnvBase, agent: rll.algos.rlBase, buffer: rll.b
 
             obs = obs_
 
-            if done:
+            if done or ep_len==max_ep_length:
                 k_ep += 1
-                buffer.finish_traj(critic=agent.critic)
+                ep_len = 0
+                if done:
+                    last_val = 0
+                else:
+                    last_val = agent.critic(torch.tensor(obs,dtype=torch.float32)).detach().numpy() if agent.critic else 0
+                buffer.finish_traj(critic=agent.critic, last_val=last_val)
                 obs = env.reset()
+
+                if k_sample == (sample_size-1):
+                    finish_traj_flag = True
         
-        if not done:
+        if not finish_traj_flag:
             k_ep += 1
             last_val = agent.critic(torch.tensor(obs,dtype=torch.float32)).detach().numpy() if agent.critic else 0
             buffer.finish_traj(critic=agent.critic, last_val=last_val)
         
         sampling_time = time.time() - epoch_start_time
-        agent.train(buffer)
+        agent.train(buffer, batch_size)
         training_time = time.time() - epoch_start_time - sampling_time
 
         if proc_id == 0:
-            print( 'Epoch: %3d \t return: %.3f \t ep_len: %.3f' %(k_epoch, np.mean(buffer.reward_to_go_buf), sample_size/k_ep), flush=True )
+            print( 'Epoch: %3d \t return: %.3f \t ep_len: %.3f' %(k_epoch, np.mean(buffer.reward_buf), sample_size/k_ep), flush=True )
             print('Tsp: %.3f \t Ttr: %.3f' %(sampling_time, training_time), flush=True)
             logger.write_reward(k_epoch, np.mean(buffer.reward_buf), np.mean(buffer.reward_to_go_buf), sample_size/k_ep, sampling_time, training_time)
             if (k_epoch+1) % args.save_freq == 0:

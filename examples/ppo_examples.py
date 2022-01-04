@@ -4,34 +4,36 @@ import rll
 import argparse
 
 parser = argparse.ArgumentParser()
-# ------------ CartPole ------------
-parser.add_argument('--env', type=str, default='CartPole-v1')
-parser.add_argument('--hid', type=list, default=[32])
-parser.add_argument('--act_std', type=float, default=0.2)
-parser.add_argument('--lr_a', type=float, default=1e-3)
-parser.add_argument('--lr_c', type=float, default=1e-3)
-parser.add_argument('--train_a_itrs', type=int, default=60)
-parser.add_argument('--train_c_itrs', type=int, default=60)
-parser.add_argument('--target_kl', type=float, default=0.01)
-parser.add_argument('--epochs', type=int, default=100)
-parser.add_argument('--sample_size', type=int, default=5000)
-parser.add_argument('--num_procs', type=int, default=4)
-parser.add_argument('--mpi_host', type=str, default='')
-parser.add_argument('--save_freq', type=int, default=100)
-# # ------------ Walker2D ------------
-# parser.add_argument('--env', type=str, default='Walker2D-v1')
-# parser.add_argument('--hid', type=list, default=[64,64])
+# # ------------ CartPole ------------
+# parser.add_argument('--env', type=str, default='CartPole-v1')
+# parser.add_argument('--hid', type=list, default=[32])
 # parser.add_argument('--act_std', type=float, default=0.2)
-# parser.add_argument('--lr_a', type=float, default=3e-4)
+# parser.add_argument('--lr_a', type=float, default=1e-3)
 # parser.add_argument('--lr_c', type=float, default=1e-3)
-# parser.add_argument('--train_a_itrs', type=int, default=80)
-# parser.add_argument('--train_c_itrs', type=int, default=80)
-# parser.add_argument('--target_kl', type=float, default=0.05)
-# parser.add_argument('--epochs', type=int, default=5000)
-# parser.add_argument('--sample_size', type=int, default=3000)
-# parser.add_argument('--num_procs', type=int, default=8)
+# parser.add_argument('--train_a_itrs', type=int, default=60)
+# parser.add_argument('--train_c_itrs', type=int, default=60)
+# parser.add_argument('--target_kl', type=float, default=0.01)
+# parser.add_argument('--epochs', type=int, default=100)
+# parser.add_argument('--sample_size', type=int, default=5000)
+# parser.add_argument('--num_procs', type=int, default=4)
 # parser.add_argument('--mpi_host', type=str, default='')
 # parser.add_argument('--save_freq', type=int, default=100)
+# ------------ Walker2D ------------
+parser.add_argument('--env', type=str, default='Walker2D-v1')
+parser.add_argument('--hid', type=list, default=[64,64])
+parser.add_argument('--act_std', type=float, default=0.2)
+parser.add_argument('--lr_a', type=float, default=3e-4)
+parser.add_argument('--lr_c', type=float, default=1e-3)
+parser.add_argument('--train_a_itrs', type=int, default=2**4)
+parser.add_argument('--train_c_itrs', type=int, default=2**4)
+parser.add_argument('--batch_size', type=int, default=2**9)
+parser.add_argument('--target_kl', type=float, default=0.05)
+parser.add_argument('--epochs', type=int, default=500)
+parser.add_argument('--sample_size', type=int, default=2**12)
+parser.add_argument('--max_ep_length', type=int, default=2**8)
+parser.add_argument('--num_procs', type=int, default=8)
+parser.add_argument('--mpi_host', type=str, default='')
+parser.add_argument('--save_freq', type=int, default=100)
 
 args = parser.parse_args()
 
@@ -42,7 +44,8 @@ hid_size = args.hid
 act_std = args.act_std
 lr_a = args.lr_a
 lr_c = args.lr_c
-args.sample_size_local = args.sample_size//args.num_procs
+args.batch_size_local = int( args.batch_size / args.num_procs )
+args.sample_size_local = int( args.sample_size / args.num_procs )
 
 
 ## create env, agent and buffer
