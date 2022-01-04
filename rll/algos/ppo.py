@@ -20,9 +20,10 @@ class rlPPO(rlBase):
         return self.actor.action(x)
 
     def train(self, buffer:BufferBase, batch_size):
+        data_all = buffer.get(buffer.buffer_size)[0]
+        obs_all, act_all, logp_old_all = data_all['obs'], data_all['act'], data_all['logp']
 
         for i in range(self.train_a_itrs):
-            approx_kl = 0
             for data in buffer.get(batch_size):
                 obs, act, logp_old, r2g, advantages = data['obs'], data['act'], data['logp'], data['r2g'], data['adv']
                 pi = self.actor(obs)
@@ -30,14 +31,14 @@ class rlPPO(rlBase):
                 ratios = (logp - logp_old).exp()
                 loss_a = -torch.min( advantages*ratios, advantages*torch.clamp(ratios, 1-0.2, 1+0.2) ).mean()
 
-                approx_kl += (logp_old - logp).mean().item()
-
                 self.optimizer_a.zero_grad()
                 loss_a.backward()
                 mpi_tools.mpi_avg_grads(self.actor)
                 self.optimizer_a.step()
             
-            approx_kl /= (buffer.buffer_size/batch_size)
+            with torch.no_grad():
+                logp_all = self.actor(obs_all).log_prob(act_all).sum(axis=-1)
+            approx_kl = (logp_old_all - logp_all).mean().item()
             approx_kl_avg = mpi_tools.mpi_avg(approx_kl)
             if approx_kl_avg > 1.5 * self.target_kl:
                 if self.proc_id == 0:
