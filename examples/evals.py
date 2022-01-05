@@ -9,6 +9,8 @@ def eval(path, play_speed=1):
         args = checkpoint['args']
 
         env = rll.envs.env_by_name(args.env)
+        if hasattr(args, 'obs_mean'):
+            env.obs_mean, env.obs_std = args.obs_mean, args.obs_std
         actor = rll.utils.nns.MLPGaussianActor(env.obs_dim, env.act_dim, args.hid, torch.nn.ReLU, 0.0001)
         actor.load_state_dict(checkpoint['actor_state_dict'])
         actor.eval()

@@ -110,6 +110,8 @@ class Walker2dEnv:
             self.obs_dim, self.act_dim = 17, 3
         else:
             self.obs_dim, self.act_dim = 17, 6
+        
+        self.obs_mean, self.obs_std = 0, 1
 
     def step(self, action):
         action = np.clip(action, -1.0, 1.0)
@@ -124,11 +126,11 @@ class Walker2dEnv:
 
         done = not (height > 0.8 and height < 2.0 and angle > -1.0 and angle < 1.0)
 
-        return state[1:], reward, done, None
+        return (state[1:]-self.obs_mean)/self.obs_std, reward, done, None
 
     def reset(self):
         state = self.sim.reset([])
-        return state[1:]
+        return (state[1:]-self.obs_mean)/self.obs_std
 
     def render(self):
         if not hasattr(self, "viewer"):

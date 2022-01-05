@@ -16,6 +16,7 @@ def onpolicy_runner(env:rll.envs.EnvBase, agent: rll.algos.rlBase, buffer: rll.b
     sample_size = args.sample_size_local
     max_ep_length = args.max_ep_length
     batch_size = args.batch_size_local
+    norm_epochs = args.norm_epochs
     num_procs = args.num_procs
 
     
@@ -35,6 +36,32 @@ def onpolicy_runner(env:rll.envs.EnvBase, agent: rll.algos.rlBase, buffer: rll.b
         agent.critic.apply(reset_parameters)
         rll.utils.mpi_tools.sync_params(agent.critic)
     
+
+    if norm_epochs > 0:
+        obs_history_buf = np.zeros( (norm_epochs*sample_size, env.obs_dim) )
+        env.reset()
+        for i in range(norm_epochs*sample_size):
+            # env.render()
+            act = np.random.uniform(low=-1, high=1, size=env.act_dim)
+            obs, _, done, _ = env.step(act)
+            obs_history_buf[i,:] = obs
+
+            if done:
+                env.reset()
+
+        obs_mean, obs_std = np.mean(obs_history_buf, axis=0), np.std(obs_history_buf, axis=0)
+        obs_mean = rll.utils.mpi_tools.mpi_avg(obs_mean)
+        obs_std = rll.utils.mpi_tools.mpi_avg(obs_std)
+        if proc_id==0:
+            print('mean: ', obs_mean.size, flush=True)
+            print(obs_mean, flush=True)
+            print('std: ', obs_std.size, flush=True)
+            print(obs_std, flush=True)
+
+
+    if hasattr(args, 'obs_mean'):
+        env.obs_mean, env.obs_std = args.obs_mean, args.obs_std
+
 
     for k_epoch in range(epochs):
         epoch_start_time = time.time()
