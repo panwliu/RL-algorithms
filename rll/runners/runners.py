@@ -37,6 +37,16 @@ def onpolicy_runner(env:rll.envs.EnvBase, agent: rll.algos.rlBase, buffer: rll.b
         rll.utils.mpi_tools.sync_params(agent.critic)
     
 
+    if args.policy:
+        checkpoint = torch.load(args.policy)
+        agent.actor.load_state_dict(checkpoint['actor_state_dict'])
+        agent.critic.load_state_dict(checkpoint['critic_state_dict'])
+        agent.optimizer_a.load_state_dict(checkpoint['actor_optimizer_state_dict'])
+        agent.optimizer_c.load_state_dict(checkpoint['critic_optimizer_state_dict'])
+        rll.utils.mpi_tools.sync_params(agent.actor)
+        rll.utils.mpi_tools.sync_params(agent.critic)
+
+
     if norm_epochs > 0:
         obs_history_buf = np.zeros( (norm_epochs*sample_size, env.obs_dim) )
         env.reset()
