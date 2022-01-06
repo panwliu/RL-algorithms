@@ -62,16 +62,20 @@ class ExpBuffer(BufferBase):
     def get(self, batch_size):
         self.ptr, self.traj_start_idx = 0, 0
 
-        adv_mean, adv_std = mpi_tools.mpi_statistics_scalar(self.advantage_buf)
-        self.advantage_buf = (self.advantage_buf - adv_mean) / adv_std
+        # adv_mean, adv_std = mpi_tools.mpi_statistics_scalar(self.advantage_buf)
+        # self.advantage_buf = (self.advantage_buf - adv_mean) / adv_std
 
         indices = np.random.permutation(self.buffer_size)       # equivalent to `indices=np.arange(buffer_size)   np.random.shuffle(indices)`
         data_list = []
         for i in range(0, self.buffer_size, batch_size):
             idx = indices[i : i+batch_size]
 
+            advantage_buf_sliced = self.advantage_buf[idx]
+            adv_mean, adv_std = mpi_tools.mpi_statistics_scalar(advantage_buf_sliced)
+            advantage_buf_sliced = (advantage_buf_sliced - adv_mean) / adv_std
+
             data = dict(obs=self.obs_buf[idx], act=self.act_buf[idx], reward=self.reward_buf[idx], obs2=self.obs_next_buf[idx],
-                        logp=self.logp_buf[idx], r2g=self.reward_to_go_buf[idx], adv=self.advantage_buf[idx])
+                        logp=self.logp_buf[idx], r2g=self.reward_to_go_buf[idx], adv=advantage_buf_sliced)
             
             data_list.append( {k: torch.as_tensor(v, dtype=torch.float32) for k,v in data.items()} )
 
