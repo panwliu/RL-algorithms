@@ -10,9 +10,9 @@ class LoggerBase:
         raise NotImplementedError
 
 class Logger:
-    def __init__(self, log_dir) -> None:
+    def __init__(self, log_dir, extra_info='') -> None:
         self.proc_id = rll.utils.mpi_tools.proc_id()
-        self.log_dir = log_dir + time.strftime( '-%Y-%m-%d_%H-%M-%S', time.localtime(time.time()) )
+        self.log_dir = log_dir + time.strftime( '-%Y-%m-%d_%H-%M-%S', time.localtime(time.time()) ) + extra_info
         self.writer = None
 
     def write_reward(self, k_epoch, reward, r2g, ep_len, sampling_time, training_time):
